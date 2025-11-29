@@ -1,10 +1,10 @@
+import os
 from flask import Flask, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from flasgger import Swagger
-import os
 
 db = SQLAlchemy()
 migrate = Migrate()
@@ -14,11 +14,17 @@ cors = CORS()
 def create_app():
     app = Flask(__name__)
     
-    # Configuration
-    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production'
-    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL') or 'sqlite:///app.db'
+    # Database configuration
+    database_url = os.environ.get('DATABASE_URL')
+    
+    # Handle Railway's PostgreSQL URL (it might use postgres:// instead of postgresql://)
+    if database_url and database_url.startswith('postgres://'):
+        database_url = database_url.replace('postgres://', 'postgresql://', 1)
+    
+    app.config['SQLALCHEMY_DATABASE_URI'] = database_url or 'sqlite:///app.db'
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY') or 'jwt-secret-change-me'
+    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key')
+    app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'dev-jwt-secret')
     
     # Swagger configuration
     app.config['SWAGGER'] = {
@@ -48,7 +54,8 @@ def create_app():
     def health_check():
         return jsonify({
             'status': 'healthy',
-            'service': 'Nexus AI Backend'
+            'service': 'Nexus AI Backend',
+            'database': 'PostgreSQL' if 'postgresql' in app.config['SQLALCHEMY_DATABASE_URI'] else 'SQLite'
         })
     
     return app
